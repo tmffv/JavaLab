@@ -8,16 +8,6 @@ import java.util.*;
 import java.util.logging.Logger;
 
 public class Manager implements IConfigurable {
-    private static class CheckParamsException extends RuntimeException {
-        CheckParamsException(String msg) {
-            super(msg);
-        }
-
-        String cause() {
-            return super.getMessage();
-        }
-    }
-
     private static enum Parameters {
         EXECUTOR_NAME,
         READER_NAME,
@@ -51,10 +41,10 @@ public class Manager implements IConfigurable {
     public RC setConfig(String s) {
         try {
             params = getParams(s);
-            checkParams();
-        } catch (CheckParamsException e) {
-            logWarning(e.cause());
-            return RC.CODE_CONFIG_GRAMMAR_ERROR;
+            RC rc = checkParams();
+            if (rc != RC.CODE_SUCCESS) {
+                return rc;
+            }
         } catch (Exception e) {
             return RC.CODE_CONFIG_GRAMMAR_ERROR;
         }
@@ -113,13 +103,16 @@ public class Manager implements IConfigurable {
         return params;
     }
 
-    private void checkParams() throws CheckParamsException {
+    private RC checkParams() {
         for (int i = 0; i < managerGrammar.numberTokens(); i++) {
             String tokenName = managerGrammar.token(i);
             if (!params.containsKey(tokenName)) {
-                throw new CheckParamsException("params doesnt contain token with name " + tokenName);
+                logWarning("params doesnt contain token with name " + tokenName);
+                return RC.CODE_CONFIG_SEMANTIC_ERROR;
             }
         }
+
+        return RC.CODE_SUCCESS;
     }
 
     private RC prepareComponents() {

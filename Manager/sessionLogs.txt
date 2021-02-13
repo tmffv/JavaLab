@@ -1,2 +1,2 @@
-февр. 13, 2021 6:05:48 PM timofeeva.manager.Main main
+февр. 13, 2021 6:27:18 PM timofeeva.manager.Main main
 INFO: CODE_SUCCESS
