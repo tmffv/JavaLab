@@ -1,2 +1,2 @@
-февр. 11, 2021 1:04:00 AM tmfv.manager.Main checkArgs
-WARNING: Wrong args
+февр. 13, 2021 6:05:48 PM timofeeva.manager.Main main
+INFO: CODE_SUCCESS

@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="IavorukExecutor">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/IavorukExecutor.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/IavorukReader.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/IavorukWriter.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
