@@ -6,7 +6,6 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,7 +14,7 @@ import java.util.logging.Logger;
 
 public class Writer implements IWriter {
     private static final String BUFF_SIZE_PARAM = "BUFFER_SIZE";
-    private static final TYPE[] supportedTypes = new TYPE[]{TYPE.SHORT, TYPE.BYTE, TYPE.CHAR};
+    private static final TYPE[] supportedTypes = new TYPE[]{TYPE.BYTE, TYPE.SHORT, TYPE.CHAR};
     private final Map<String, String> params = new HashMap<>();
     private final BaseGrammar writerGrammar = new BaseGrammar(new String[]{BUFF_SIZE_PARAM}) {
         @Override
@@ -162,7 +161,8 @@ public class Writer implements IWriter {
      */
     private void writeData(byte[] data, int len) {
         try {
-            for (byte b : data) {
+            for (int i = 0; i < len; i++) {
+                byte b = data[i];
                 if (b != (byte) 0) {
                     outputStream.write(b);
                 }
@@ -185,7 +185,11 @@ public class Writer implements IWriter {
                 case SHORT:
                     short[] shortData = (short[]) data;
                     byte[] byteData = new byte[shortData.length * 2];
-                    ByteBuffer.wrap(byteData).asShortBuffer().put(shortData);
+                    for (int i = 0, j = 0; i < byteData.length; i += 2, j++) {
+                        short shortValue = shortData[j];
+                        byteData[i] = (byte) (shortValue & 0xff);
+                        byteData[i + 1] = (byte) ((shortValue >> 8) & 0xff);
+                    }
                     return byteData;
                 case CHAR:
                     return new String((char[]) data).getBytes(StandardCharsets.UTF_8);

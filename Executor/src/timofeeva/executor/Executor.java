@@ -6,7 +6,9 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,19 +25,17 @@ public class Executor implements IExecutor {
     };
     private final IMediator mediatorByte = () -> {
         if (this.outputBuffer != null) {
+            invertBuffer(0, this.bytesInBuffer);
             return this.outputBuffer.clone();
         }
         return null;
     };
     private final IMediator mediatorShort = () -> {
         if (Executor.this.outputBuffer != null) {
-            int size = Executor.this.outputBuffer.length;
-            short[] shortArray = new short[size];
-
-            for (int index = 0; index < size; index++)
-                shortArray[index] = (short) Executor.this.outputBuffer[index];
-
-            return shortArray;
+            invertBuffer(0, this.bytesInBuffer);
+            short[] shorts = new short[this.outputBuffer.length / 2];
+            ByteBuffer.wrap(this.outputBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+            return shorts;
         }
         return null;
     };
@@ -75,10 +75,11 @@ public class Executor implements IExecutor {
             if (rc != RC.CODE_SUCCESS) {
                 return rc;
             }
-            // чистим буффер
-            outputBuffer = new byte[bufferSize];
+            // зануляем буффер
+            outputBuffer = null;
             bytesInBuffer = 0;
-            return rc;
+            // сигнализируем о завершении consumer'у
+            return consumer.execute();
         }
 
         // если в буффер все не поместится
@@ -91,6 +92,8 @@ public class Executor implements IExecutor {
 //            if (offset == 0) {
 //                offset = bufferSize;
 //            }
+
+            //данные которе не помещаются в буффер
             byte[] exportBytes = Arrays.copyOf(bufferPlusNewData, bufferPlusNewData.length - offset);
 
             // пытаемся передать все байты дальше
@@ -103,10 +106,12 @@ public class Executor implements IExecutor {
             outputBuffer = new byte[bufferSize];
             System.arraycopy(newBytes, newBytes.length - offset, outputBuffer, 0, offset);
             bytesInBuffer = offset;
+            invertBuffer(0, offset);
         } else {
             // помещаем все в буффер
             outputBuffer = new byte[bufferSize];
             System.arraycopy(bufferPlusNewData, 0, outputBuffer, 0, bufferPlusNewData.length);
+            invertBuffer(bytesInBuffer, bufferPlusNewData.length);
             bytesInBuffer = bufferPlusNewData.length;
         }
         return RC.CODE_SUCCESS;
@@ -167,11 +172,15 @@ public class Executor implements IExecutor {
         try {
             switch (producerType) {
                 case BYTE:
-                    return (byte[]) data;
+                    return filterBytes((byte[]) data);
                 case SHORT:
                     short[] shortData = (short[]) data;
                     byte[] byteData = new byte[shortData.length * 2];
-                    ByteBuffer.wrap(byteData).asShortBuffer().put(shortData);
+                    for (int i = 0, j = 0; i < byteData.length; i += 2, j++) {
+                        short shortValue = shortData[j];
+                        byteData[i] = (byte) (shortValue & 0xff);
+                        byteData[i + 1] = (byte) ((shortValue >> 8) & 0xff);
+                    }
                     return byteData;
                 case CHAR:
                     return new String((char[]) data).getBytes(StandardCharsets.UTF_8);
@@ -209,5 +218,28 @@ public class Executor implements IExecutor {
         }
 
         return RC.CODE_SUCCESS;
+    }
+
+    private void invertBuffer(int startIndex, int endIndex) {
+        for (int i = startIndex; i < endIndex; i++) {
+//            System.out.println("b:" + Integer.toBinaryString((outputBuffer[i] & 0xFF) + 0x100).substring(1));
+            outputBuffer[i] = (byte) (~outputBuffer[i] & 0xff);
+//            System.out.println("a:" + Integer.toBinaryString((outputBuffer[i] & 0xFF) + 0x100).substring(1));
+        }
+    }
+
+    private byte[] filterBytes(byte[] input) {
+        ArrayList<Byte> output = new ArrayList<>();
+        for (byte b : input) {
+            if (b != 0) {
+                output.add(b);
+            }
+        }
+        byte[] newArr = new byte[output.size()];
+        for (int i = 0; i < output.size(); i++) {
+            newArr[i] = output.get(i);
+        }
+
+        return newArr;
     }
 }

@@ -6,6 +6,8 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,13 +36,9 @@ public class Reader implements IReader {
         @Override
         public Object getData() {
             if (outputBuffer != null) {
-                int size = outputBuffer.length;
-                short[] shortArray = new short[size];
-
-                for (int index = 0; index < size; index++)
-                    shortArray[index] = (short) outputBuffer[index];
-
-                return shortArray;
+                short[] shorts = new short[outputBuffer.length / 2];
+                ByteBuffer.wrap(outputBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
+                return shorts;
             }
             return null;
         }

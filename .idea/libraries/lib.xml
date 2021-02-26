@@ -1,0 +1,15 @@
+<component name="libraryTable">
+  <library name="lib">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/Manager/lib/interfaces.jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/Writer.jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/IavorukWriter.jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/executor_shagvaliev (2).jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/Executor.jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/IavorukReader.jar!/" />
+      <root url="jar://$PROJECT_DIR$/Manager/lib/Reader.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
