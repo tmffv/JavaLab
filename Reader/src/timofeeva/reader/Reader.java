@@ -1,14 +1,14 @@
 package timofeeva.reader;
 
-import ru.spbstu.pipeline.*;
+import ru.spbstu.pipeline.BaseGrammar;
+import ru.spbstu.pipeline.IExecutable;
+import ru.spbstu.pipeline.IReader;
+import ru.spbstu.pipeline.RC;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,37 +23,7 @@ public class Reader implements IReader {
             return super.delimiter();
         }
     };
-    private final IMediator mediatorByte = new IMediator() {
-        @Override
-        public Object getData() {
-            if (outputBuffer != null) {
-                return outputBuffer.clone();
-            }
-            return null;
-        }
-    };
-    private final IMediator mediatorShort = new IMediator() {
-        @Override
-        public Object getData() {
-            if (outputBuffer != null) {
-                short[] shorts = new short[outputBuffer.length / 2];
-                ByteBuffer.wrap(outputBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-                return shorts;
-            }
-            return null;
-        }
-    };
-    private final IMediator mediatorChar = new IMediator() {
-        @Override
-        public Object getData() {
-            if (outputBuffer != null) {
-                String text = new String(outputBuffer, StandardCharsets.UTF_8);
-                return text.toCharArray();
-            }
-            return null;
-        }
-    };
-    private IConsumer consumer;
+    private IExecutable consumer;
     private Logger logger;
     private FileInputStream inputStream;
     private Integer bufferSize;
@@ -71,7 +41,7 @@ public class Reader implements IReader {
     }
 
     @Override
-    public RC execute() {
+    public RC execute(byte[] bytes) {
         if (inputStream == null) {
             logWarn("InputStream is null");
             return RC.CODE_INVALID_INPUT_STREAM;
@@ -87,7 +57,7 @@ public class Reader implements IReader {
                 break;
             }
 
-            RC rc = consumer.execute();
+            RC rc = consumer.execute(outputBuffer);
             if (rc != RC.CODE_SUCCESS) {
                 return RC.CODE_FAILED_PIPELINE_CONSTRUCTION;
             }
@@ -96,20 +66,19 @@ public class Reader implements IReader {
         }
 
         // передаем сигнал о завершении
-        outputBuffer = null;
-        consumer.execute();
+        consumer.execute(null);
 
         return RC.CODE_SUCCESS;
     }
 
     @Override
-    public RC setConsumer(IConsumer iConsumer) {
+    public RC setConsumer(IExecutable iConsumer) {
         this.consumer = iConsumer;
         return RC.CODE_SUCCESS;
     }
 
     @Override
-    public RC setProducer(IProducer iProducer) {
+    public RC setProducer(IExecutable iProducer) {
         return RC.CODE_SUCCESS;
     }
 
@@ -122,20 +91,6 @@ public class Reader implements IReader {
         rc = checkParams();
 
         return rc;
-    }
-
-    @Override
-    public TYPE[] getOutputTypes() {
-        return new TYPE[] {TYPE.BYTE, TYPE.SHORT};
-    }
-
-    @Override
-    public IMediator getMediator(TYPE type) {
-        return switch (type) {
-            case BYTE -> mediatorByte;
-            case CHAR -> mediatorChar;
-            case SHORT -> mediatorShort;
-        };
     }
 
     private RC getParams(String filePath) {

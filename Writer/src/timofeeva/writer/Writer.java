@@ -1,12 +1,14 @@
 package timofeeva.writer;
 
-import ru.spbstu.pipeline.*;
+import ru.spbstu.pipeline.BaseGrammar;
+import ru.spbstu.pipeline.IExecutable;
+import ru.spbstu.pipeline.IWriter;
+import ru.spbstu.pipeline.RC;
 
 import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +16,6 @@ import java.util.logging.Logger;
 
 public class Writer implements IWriter {
     private static final String BUFF_SIZE_PARAM = "BUFFER_SIZE";
-    private static final TYPE[] supportedTypes = new TYPE[]{TYPE.BYTE, TYPE.SHORT, TYPE.CHAR};
     private final Map<String, String> params = new HashMap<>();
     private final BaseGrammar writerGrammar = new BaseGrammar(new String[]{BUFF_SIZE_PARAM}) {
         @Override
@@ -22,14 +23,12 @@ public class Writer implements IWriter {
             return super.delimiter();
         }
     };
-    private IProducer producer;
+    private IExecutable producer;
     private Logger logger;
     private FileOutputStream outputStream;
     private Integer bufferSize;
     private byte[] buffer;
     private int bytesInBuffer;// кол-во занятых байт в буффере
-    private IMediator producerMediator;
-    private TYPE producerMediatorType;
 
     public Writer(Logger logger) {
         this.logger = logger;
@@ -47,25 +46,19 @@ public class Writer implements IWriter {
     }
 
     @Override
-    public RC execute() {
-        if (producerMediator == null) {
-            logWarn("Writer doesnt support Producer's data types");
-            return RC.CODE_FAILED_PIPELINE_CONSTRUCTION;
-        }
-
-        Object data = producerMediator.getData();
-        if (data == null) {
+    public RC execute(byte[] bytes) {
+        if (bytes == null) {
             writeDataFromBufferAndClear();
             return RC.CODE_SUCCESS;
         }
 
-        byte[] bytesInput = convertInputDataTyBytes(data);
+        byte[] bytesInput = bytes;
         if (bytesInput == null) {
             return RC.CODE_FAILED_PIPELINE_CONSTRUCTION;
         }
 
         long delta = bufferSize - bytesInBuffer;
-        // если места в буффере хваает
+        // если места в буффере хватает
         if (delta >= bytesInput.length) {
             fillBuffer(bytesInBuffer, bytesInput);
             return RC.CODE_SUCCESS;
@@ -90,27 +83,17 @@ public class Writer implements IWriter {
     }
 
     @Override
-    public RC setConsumer(IConsumer iConsumer) {
+    public RC setConsumer(IExecutable iConsumer) {
         return RC.CODE_SUCCESS;
     }
 
     @Override
-    public RC setProducer(IProducer iProducer) {
+    public RC setProducer(IExecutable iProducer) {
         if (iProducer == null) {
             logWarn("producer is null " + Writer.class.getName());
             return RC.CODE_INVALID_ARGUMENT;
         }
         producer = iProducer;
-        for (TYPE inputType : supportedTypes) {
-            for (TYPE outputType : producer.getOutputTypes()) {
-                if (inputType == outputType) {
-                    producerMediatorType = outputType;
-                    producerMediator = producer.getMediator(outputType);
-                    return RC.CODE_SUCCESS;
-                }
-            }
-        }
-
         return RC.CODE_SUCCESS;
     }
 
@@ -175,30 +158,6 @@ public class Writer implements IWriter {
     private void fillBuffer(int offset, byte[] data) {
         System.arraycopy(data, 0, buffer, offset, data.length);
         bytesInBuffer = offset + data.length;
-    }
-
-    private byte[] convertInputDataTyBytes(Object data) {
-        try {
-            switch (producerMediatorType) {
-                case BYTE:
-                    return (byte[]) data;
-                case SHORT:
-                    short[] shortData = (short[]) data;
-                    byte[] byteData = new byte[shortData.length * 2];
-                    for (int i = 0, j = 0; i < byteData.length; i += 2, j++) {
-                        short shortValue = shortData[j];
-                        byteData[i] = (byte) (shortValue & 0xff);
-                        byteData[i + 1] = (byte) ((shortValue >> 8) & 0xff);
-                    }
-                    return byteData;
-                case CHAR:
-                    return new String((char[]) data).getBytes(StandardCharsets.UTF_8);
-            }
-        } catch (Throwable t) {
-            logWarn("Error while converting data in Writer");
-        }
-
-        return null;
     }
 
     private void logWarn(String message) {

@@ -1,13 +1,13 @@
 package timofeeva.executor;
 
-import ru.spbstu.pipeline.*;
+import ru.spbstu.pipeline.BaseGrammar;
+import ru.spbstu.pipeline.IExecutable;
+import ru.spbstu.pipeline.IExecutor;
+import ru.spbstu.pipeline.RC;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -23,37 +23,12 @@ public class Executor implements IExecutor {
             return super.delimiter();
         }
     };
-    private final IMediator mediatorByte = () -> {
-        if (this.outputBuffer != null) {
-            invertBuffer(0, this.bytesInBuffer);
-            return this.outputBuffer.clone();
-        }
-        return null;
-    };
-    private final IMediator mediatorShort = () -> {
-        if (Executor.this.outputBuffer != null) {
-            invertBuffer(0, this.bytesInBuffer);
-            short[] shorts = new short[this.outputBuffer.length / 2];
-            ByteBuffer.wrap(this.outputBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts);
-            return shorts;
-        }
-        return null;
-    };
-    private final IMediator mediatorChar = () -> {
-        if (Executor.this.outputBuffer != null) {
-            String text = new String(Executor.this.outputBuffer, StandardCharsets.UTF_8);
-            return text.toCharArray();
-        }
-        return null;
-    };
     private Logger logger;
-    private IProducer producer;
-    private IConsumer consumer;
-    private IMediator producerMediator;
+    private IExecutable producer;
+    private IExecutable consumer;
     private int bufferSize;
     private byte[] outputBuffer;
     private int bytesInBuffer;
-    private TYPE producerType;
 
     private void logWarn(String message) {
         if (logger != null) {
@@ -65,13 +40,17 @@ public class Executor implements IExecutor {
         this.logger = logger;
     }
 
+
     @Override
-    public RC execute() {
-        Object data = producerMediator.getData();
-        byte[] newBytes = convertInputDataTyBytes(data);
+    public RC execute(byte[] bytes) {
+        byte[] newBytes = null;
+        if (bytes != null) {
+            newBytes = filterBytes(bytes);
+        }
 
         if (newBytes == null) {
-            RC rc = consumer.execute();
+            invertBuffer(0, bytesInBuffer);
+            RC rc = consumer.execute(outputBuffer);
             if (rc != RC.CODE_SUCCESS) {
                 return rc;
             }
@@ -79,7 +58,7 @@ public class Executor implements IExecutor {
             outputBuffer = null;
             bytesInBuffer = 0;
             // сигнализируем о завершении consumer'у
-            return consumer.execute();
+            return consumer.execute(null);
         }
 
         // если в буффер все не поместится
@@ -98,7 +77,8 @@ public class Executor implements IExecutor {
 
             // пытаемся передать все байты дальше
             outputBuffer = exportBytes;
-            RC rc = consumer.execute();
+            invertBuffer(0, bytesInBuffer);
+            RC rc = consumer.execute(outputBuffer);
             if (rc != RC.CODE_SUCCESS) {
                 return rc;
             }
@@ -118,78 +98,30 @@ public class Executor implements IExecutor {
     }
 
     @Override
-    public RC setConsumer(IConsumer iConsumer) {
-        if (iConsumer == null) {
+    public RC setConsumer(IExecutable iExecutable) {
+        if (iExecutable == null) {
             logWarn("Consumer is null");
             return RC.CODE_INVALID_ARGUMENT;
         }
-        this.consumer = iConsumer;
+        this.consumer = iExecutable;
 
         return RC.CODE_SUCCESS;
     }
 
     @Override
-    public RC setProducer(IProducer iProducer) {
-        if (iProducer == null) {
+    public RC setProducer(IExecutable iExecutable) {
+        if (iExecutable == null) {
             logWarn("Producer is null");
             return RC.CODE_INVALID_ARGUMENT;
         }
-        for (TYPE type : new TYPE[]{TYPE.BYTE, TYPE.SHORT, TYPE.CHAR}) {
-            for (TYPE supportedProducerType : iProducer.getOutputTypes()) {
-                if (type == supportedProducerType) {
-                    producerType = supportedProducerType;
-                    producerMediator = iProducer.getMediator(supportedProducerType);
-                    producer = iProducer;
-                    return RC.CODE_SUCCESS;
-                }
-            }
-        }
+        this.producer = iExecutable;
 
-        logWarn("Executor doesnt support producer types");
-        return RC.CODE_FAILED_PIPELINE_CONSTRUCTION;
+        return RC.CODE_SUCCESS;
     }
 
     @Override
     public RC setConfig(String s) {
         return getParams(s);
-    }
-
-    @Override
-    public TYPE[] getOutputTypes() {
-        return new TYPE[]{TYPE.BYTE, TYPE.SHORT, TYPE.CHAR};
-    }
-
-    @Override
-    public IMediator getMediator(TYPE type) {
-        return switch (type) {
-            case BYTE -> mediatorByte;
-            case CHAR -> mediatorChar;
-            case SHORT -> mediatorShort;
-        };
-    }
-
-    private byte[] convertInputDataTyBytes(Object data) {
-        try {
-            switch (producerType) {
-                case BYTE:
-                    return filterBytes((byte[]) data);
-                case SHORT:
-                    short[] shortData = (short[]) data;
-                    byte[] byteData = new byte[shortData.length * 2];
-                    for (int i = 0, j = 0; i < byteData.length; i += 2, j++) {
-                        short shortValue = shortData[j];
-                        byteData[i] = (byte) (shortValue & 0xff);
-                        byteData[i + 1] = (byte) ((shortValue >> 8) & 0xff);
-                    }
-                    return byteData;
-                case CHAR:
-                    return new String((char[]) data).getBytes(StandardCharsets.UTF_8);
-            }
-        } catch (Throwable t) {
-            logWarn("Error while converting data in Writer");
-        }
-
-        return null;
     }
 
     private RC getParams(String filePath) {

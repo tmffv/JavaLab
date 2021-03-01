@@ -1,6 +1,2 @@
-февр. 27, 2021 12:35:53 AM timofeeva.executor.Executor logWarn
-WARNING: Error while converting data in Writer
-февр. 27, 2021 12:35:53 AM timofeeva.executor.Executor logWarn
-WARNING: Error while converting data in Writer
-февр. 27, 2021 12:35:53 AM timofeeva.manager.Main main
+мар. 01, 2021 11:57:32 PM timofeeva.manager.Main main
 INFO: CODE_SUCCESS

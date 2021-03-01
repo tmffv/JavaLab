@@ -68,7 +68,7 @@ public class Manager implements IConfigurable {
         }
 
         try {
-            resultCode = reader.execute();
+            resultCode = reader.execute(null);
         } catch (Exception e) {
             return RC.CODE_FAILED_PIPELINE_CONSTRUCTION;
         } finally {
